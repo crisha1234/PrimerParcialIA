@@ -1,0 +1,158 @@
+# Instalar librerías necesarias automáticamente
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+
+import torch
+import torchvision
+import torch.nn.functional as F
+import torchvision.transforms as transforms
+from torch import optim, nn
+from torch.utils.data import DataLoader
+from torchvision.datasets import ImageFolder
+from tqdm import tqdm
+
+# Ruta al dataset (ajustar si es necesario)
+dataset_path = "C:\\Users\\59174\\Documents\\USFX\\6to semestre\\COM300 - INTELIGENCIA ARTIFICAL\\dataset"
+
+# Transformaciones: redimensionado, conversión a tensor, normalización
+transform = transforms.Compose([
+    transforms.Resize((256, 472)),  # aseguremos que todas sean del mismo tamaño
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+])
+
+# Dataset y DataLoader
+full_dataset = ImageFolder(root=dataset_path, transform=transform)
+
+# Verificar una imagen de prueba (aleatoria)
+import random
+
+classes = full_dataset.classes
+random_idx = random.randint(0, len(full_dataset) - 1)
+sample_img, sample_label = full_dataset[random_idx]
+
+plt.imshow(np.transpose(sample_img.numpy(), (1, 2, 0)))
+plt.title(f"Clase: {classes[sample_label]}")
+plt.axis('off')
+plt.show()
+
+# Configuración
+batch_size = 128
+input_size = 3 * 256 * 472  # RGB * alto * ancho
+num_classes = len(classes)
+learning_rate = 0.001
+epochs = 20
+
+# Dividir entre entrenamiento y test (90% / 10%)
+train_size = int(0.9 * len(full_dataset))
+test_size = len(full_dataset) - train_size
+train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [train_size, test_size])
+
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+# Red neuronal adaptada
+class MovieClassifier(nn.Module):
+    def __init__(self, input_size, num_classes):
+        super(MovieClassifier, self).__init__()
+        self.fc1 = nn.Linear(input_size, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc3 = nn.Linear(512, num_classes)
+
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
+        return x
+
+# Inicialización
+model = MovieClassifier(input_size=input_size, num_classes=num_classes).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+loss_fn = nn.CrossEntropyLoss()
+
+# Entrenamiento
+train_losses = []
+model.train()
+for epoch in range(epochs):
+    epoch_loss = 0
+    loop = tqdm(train_loader)
+    for batch_idx, (data, targets) in enumerate(loop):
+        data = data.view(data.shape[0], -1).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        targets = targets.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+        # forward
+        scores = model(data)
+        loss = loss_fn(scores, targets)
+
+        # backward
+        optimizer.zero_grad()
+        loss.backward()
+
+        # gradient descent
+        optimizer.step()
+
+        epoch_loss += loss.item()
+        loop.set_description(f"Epoch [{epoch+1}/{epochs}]")
+        loop.set_postfix(loss=loss.item())
+
+    avg_loss = epoch_loss / len(train_loader)
+    train_losses.append(avg_loss)
+
+# Graficar pérdida
+plt.plot(train_losses, label="Training Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+plt.title("Evolución del costo durante el entrenamiento")
+plt.grid()
+plt.show()
+
+# Evaluación en test
+model.eval()
+num_correct = 0
+num_samples = 0
+accuracy_per_epoch = []
+with torch.no_grad():
+    for x, y in test_loader:
+        x = x.view(x.shape[0], -1).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        y = y.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+        scores = model(x)
+        _, predictions = scores.max(1)
+        num_correct += (predictions == y).sum()
+        num_samples += predictions.size(0)
+
+    accuracy = float(num_correct) / num_samples * 100
+    accuracy_per_epoch.append(accuracy)
+
+print(f"Accuracy en test: {accuracy:.2f}%")
+
+# Evaluación en training
+model.train()
+num_correct_train = 0
+num_samples_train = 0
+with torch.no_grad():
+    for x, y in train_loader:
+        x = x.view(x.shape[0], -1).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        y = y.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+        scores = model(x)
+        _, predictions = scores.max(1)
+        num_correct_train += (predictions == y).sum()
+        num_samples_train += predictions.size(0)
+
+train_accuracy = float(num_correct_train) / num_samples_train * 100
+print(f"Accuracy en training: {train_accuracy:.2f}%")
+
+# Graficar la precisión en test
+plt.plot(accuracy_per_epoch, label="Test Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Precisión")
+plt.legend()
+plt.title("Precisión del modelo durante el entrenamiento")
+plt.grid()
+plt.show()
