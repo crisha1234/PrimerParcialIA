@@ -17,9 +17,8 @@ dataset_path = "C:\\Users\\59174\\Documents\\USFX\\6to semestre\\COM300 - INTELI
 
 # Transformaciones: redimensionado, conversión a tensor, normalización
 transform = transforms.Compose([
-    transforms.Resize((256, 472)),  # aseguremos que todas sean del mismo tamaño
+    transforms.Resize((64, 118)),  # aseguremos que todas sean del mismo tamaño
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
 # Dataset y DataLoader
@@ -38,11 +37,11 @@ plt.axis('off')
 plt.show()
 
 # Configuración
-batch_size = 128
-input_size = 3 * 256 * 472  # RGB * alto * ancho
+batch_size = 64
+input_size = 3 * 64 * 118  # RGB * alto * ancho
 num_classes = len(classes)
-learning_rate = 0.001
-epochs = 20
+learning_rate = 0.0005
+epochs = 50
 
 # Dividir entre entrenamiento y test (90% / 10%)
 train_size = int(0.9 * len(full_dataset))
@@ -56,22 +55,36 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 class MovieClassifier(nn.Module):
     def __init__(self, input_size, num_classes):
         super(MovieClassifier, self).__init__()
-        self.fc1 = nn.Linear(input_size, 1024)
-        self.fc2 = nn.Linear(1024, 512)
-        self.fc3 = nn.Linear(512, num_classes)
+        self.model = nn.Sequential(
+            nn.Linear(input_size, 1024),
+            nn.BatchNorm1d(1024),
+            nn.LeakyReLU(),
+            nn.Dropout(0.3),
 
+            nn.Linear(1024, 512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(),
+            nn.Dropout(0.3),
+
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.LeakyReLU(),
+            nn.Dropout(0.2),
+
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.LeakyReLU(),
+
+            nn.Linear(128, num_classes)
+        )
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.fc2(x)
-        x = F.relu(x)
-        x = self.fc3(x)
-        return x
+        return self.model(x)
+
 
 # Inicialización
 model = MovieClassifier(input_size=input_size, num_classes=num_classes).to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
 loss_fn = nn.CrossEntropyLoss()
 
 # Entrenamiento
@@ -148,11 +161,5 @@ with torch.no_grad():
 train_accuracy = float(num_correct_train) / num_samples_train * 100
 print(f"Accuracy en training: {train_accuracy:.2f}%")
 
-# Graficar la precisión en test
-plt.plot(accuracy_per_epoch, label="Test Accuracy")
-plt.xlabel("Epoch")
-plt.ylabel("Precisión")
-plt.legend()
-plt.title("Precisión del modelo durante el entrenamiento")
-plt.grid()
-plt.show()
+
+https://github.com/crisha1234/PrimerParcialIA/tree/main
