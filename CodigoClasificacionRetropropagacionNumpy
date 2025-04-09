@@ -1,0 +1,131 @@
+# Importar librerías necesarias
+import os
+import numpy as np
+from matplotlib import pyplot as plt
+from scipy import optimize
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+import pandas as pd
+
+# Cargar el archivo CSV con el mapeo de archivos
+filemapping = pd.read_csv('C:\\Users\\59174\\Documents\\USFX\\6to semestre\\COM300 - INTELIGENCIA ARTIFICAL\\dataset\\filemapping.csv')
+dataset_path = "C:\\Users\\59174\\Documents\\USFX\\6to semestre\\COM300 - INTELIGENCIA ARTIFICAL\\dataset\\"
+
+# Cargar imágenes
+X = []
+y = []
+image_size = (64, 118)
+
+for i, row in filemapping.iterrows():
+    image_path = os.path.join(dataset_path, row['path'])
+    if os.path.exists(image_path):
+        img = load_img(image_path, target_size=image_size)
+        img_array = img_to_array(img)
+        X.append(img_array)
+        y.append(row['label'])
+
+X = np.array(X)
+y = np.array(y)
+
+print("Shape de X:", X.shape)
+print("Shape de y:", y.shape)
+
+# Normalizar y aplanar
+X = X / 255.0
+X = X.reshape(X.shape[0], -1)
+
+# Codificar etiquetas
+le = LabelEncoder()
+y = le.fit_transform(y)
+
+print(X.shape)
+print(y[:20000])
+
+# Dividir entre entrenamiento y test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+# Inicializar pesos
+def randInitializeWeights(L_in, L_out, epsilon_init=0.12):
+    return np.random.rand(L_out, 1 + L_in) * 2 * epsilon_init - epsilon_init
+
+input_layer_size = X.shape[1]
+hidden_layer_size = 32  # Reducimos el tamaño de la capa oculta
+num_labels = len(np.unique(y))
+
+initial_Theta1 = randInitializeWeights(input_layer_size, hidden_layer_size)
+initial_Theta2 = randInitializeWeights(hidden_layer_size, num_labels)
+initial_nn_params = np.concatenate([initial_Theta1.ravel(), initial_Theta2.ravel()])
+
+# Activaciones
+def sigmoid(z):
+    z = np.clip(z, -500, 500)
+    return 1.0 / (1.0 + np.exp(-z))
+
+def sigmoidGradient(z):
+    return sigmoid(z) * (1 - sigmoid(z))
+
+# Función de costo
+def nnCostFunction(nn_params, input_layer_size, hidden_layer_size, num_labels, X, y, lambda_=0.0):
+    Theta1 = np.reshape(nn_params[:hidden_layer_size * (input_layer_size + 1)], (hidden_layer_size, input_layer_size + 1))
+    Theta2 = np.reshape(nn_params[hidden_layer_size * (input_layer_size + 1):], (num_labels, hidden_layer_size + 1))
+    m = y.size
+
+    a1 = np.concatenate([np.ones((m, 1)), X], axis=1)
+    z2 = a1.dot(Theta1.T)
+    a2 = sigmoid(z2)
+    a2 = np.concatenate([np.ones((a2.shape[0], 1)), a2], axis=1)
+    z3 = a2.dot(Theta2.T)
+    a3 = sigmoid(z3)
+
+    y_matrix = np.eye(num_labels)[y]
+
+    reg_term = (lambda_ / (2 * m)) * (
+        np.sum(np.square(Theta1[:, 1:])) + np.sum(np.square(Theta2[:, 1:]))
+    )
+
+    J = (-1 / m) * np.sum((np.log(a3) * y_matrix) + np.log(1 - a3) * (1 - y_matrix)) + reg_term
+
+    delta_3 = a3 - y_matrix
+    delta_2 = delta_3.dot(Theta2)[:, 1:] * sigmoidGradient(z2)
+
+    Delta1 = delta_2.T.dot(a1)
+    Delta2 = delta_3.T.dot(a2)
+
+    Theta1_grad = (1 / m) * Delta1
+    Theta1_grad[:, 1:] += (lambda_ / m) * Theta1[:, 1:]
+
+    Theta2_grad = (1 / m) * Delta2
+    Theta2_grad[:, 1:] += (lambda_ / m) * Theta2[:, 1:]
+
+    grad = np.concatenate([Theta1_grad.ravel(), Theta2_grad.ravel()])
+    return J, grad
+
+# Predicción
+def predict(Theta1, Theta2, X):
+    m = X.shape[0]
+    a1 = np.concatenate([np.ones((m, 1)), X], axis=1)
+    a2 = sigmoid(a1.dot(Theta1.T))
+    a2 = np.concatenate([np.ones((a2.shape[0], 1)), a2], axis=1)
+    a3 = sigmoid(a2.dot(Theta2.T))
+    return np.argmax(a3, axis=1)
+
+# Entrenamiento
+lambda_ = 1.0  # Aumentamos la regularización a 1.0
+options = {'maxfun': 1500}  # Reducimos el número de iteraciones de optimización
+
+costFunction = lambda p: nnCostFunction(p, input_layer_size, hidden_layer_size, num_labels, X_train, y_train, lambda_)
+res = optimize.minimize(costFunction, initial_nn_params, jac=True, method='TNC', options=options)
+
+# Obtener pesos entrenados
+nn_params = res.x
+Theta1 = np.reshape(nn_params[:hidden_layer_size * (input_layer_size + 1)], (hidden_layer_size, input_layer_size + 1))
+Theta2 = np.reshape(nn_params[hidden_layer_size * (input_layer_size + 1):], (num_labels, hidden_layer_size + 1))
+
+# Evaluación
+pred_train = predict(Theta1, Theta2, X_train)
+pred_test = predict(Theta1, Theta2, X_test)
+
+# Mostrar la precisión
+print(f"Training Set Accuracy: {np.mean(pred_train == y_train) * 100:.2f}%")
+print(f"Test Set Accuracy: {np.mean(pred_test == y_test) * 100:.2f}%")
