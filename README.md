@@ -3,6 +3,7 @@ Comparación de Modelos de Clasificación: Numpy vs PyTorch
 
 Este documento presenta una comparación entre dos enfoques para construir y entrenar una red neuronal de clasificación de imágenes. Los modelos se implementan utilizando Numpy (sin bibliotecas avanzadas) y PyTorch (una biblioteca de deep learning). A continuación, se detallan las diferencias clave entre ambos enfoques, sus ventajas y desventajas, y se determina cuál es la mejor alternativa según el contexto de uso.
 1. Implementación y Estructura del Código
+
     Numpy (Primer Código)
 
     Implementación Manual: Cada componente de la red neuronal (cálculo de activación, propagación hacia adelante, retropropagación, función de costo, optimización) se implementa manualmente.
@@ -19,7 +20,8 @@ Este documento presenta una comparación entre dos enfoques para construir y ent
 
     Manejo de Datos: El uso de DataLoader y transformaciones de torchvision facilita la carga y preprocesamiento de datos.
 
-2. Optimización y Computación
+3. Optimización y Computación
+
     Numpy (Primer Código)
 
     La optimización se realiza de manera manual, utilizando SciPy para minimizar la función de costo.
@@ -36,7 +38,8 @@ Este documento presenta una comparación entre dos enfoques para construir y ent
 
     Optimización Adaptativa: El uso de optimizadores avanzados como AdamW mejora el rendimiento durante el entrenamiento.
 
-3. Manejo de Datos
+5. Manejo de Datos
+
     Numpy (Primer Código)
 
     El proceso de carga y preprocesamiento de datos se realiza manualmente, lo que puede ser más tedioso y propenso a errores.
@@ -51,7 +54,8 @@ Este documento presenta una comparación entre dos enfoques para construir y ent
 
     División de Datos: Los datos se dividen automáticamente en entrenamiento y prueba usando random_split.
 
-4. Facilidad de Uso y Extensibilidad
+7. Facilidad de Uso y Extensibilidad
+
     Numpy (Primer Código)
 
     El código es menos modular y requiere más esfuerzo manual para ajustar y modificar el modelo.
@@ -64,7 +68,8 @@ Este documento presenta una comparación entre dos enfoques para construir y ent
 
     Extensibilidad: PyTorch permite agregar nuevas capas, cambiar la arquitectura de la red (por ejemplo, agregar convoluciones o redes recurrentes) sin reescribir mucho código.
 
-5. Rendimiento
+9. Rendimiento
+
     Numpy (Primer Código)
 
     El rendimiento es más bajo, especialmente para datasets grandes. La optimización manual y la falta de soporte para GPU ralentizan el proceso de entrenamiento.
@@ -77,7 +82,8 @@ Este documento presenta una comparación entre dos enfoques para construir y ent
 
     PyTorch es más escalable y puede manejar datasets grandes de manera eficiente.
 
-6. Resultados y Precisión
+11. Resultados y Precisión
+
     Numpy (Primer Código)
 
     El rendimiento en términos de precisión depende en gran medida de la correcta implementación de cada componente.
